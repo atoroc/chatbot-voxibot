@@ -2,7 +2,7 @@
 <vxml version="2.1" xmlns="http://www.w3.org/2001/vxml">
 
   <!-- TTS configuration -->
-  <property name="prompturl" value="http://ttsb.voximal.net/tts/baratinoo/tts.php"/>
+  <property name="prompturl" value="[server]tts.php"/>
   <property name="promptformat" value="wav"/>
   <property name="promptapi" value=""/>
   <property name="promptmethod" value="post"/>
@@ -54,18 +54,10 @@
   <var name="chatbot" expr="'dialogflow'"/>
 
   <!-- DialogFlow (Google) -->
-  <property name="authorization3" value="e038824f-1f31-450d-bd82-c5e2425dd454:cY3ipjz2UxYN"/>
-  <property name="authorization1" value="Bearer 135b1757028c4a0e992385969edd4d27"/><!-- CoolBot -->
-  <property name="authorization2" value="330a818b-25db-448e-ad9d-cedbe5b05054:xYxlljrLeEZ1"/>
-  <property name="authorization3" value="Bearer 2e0a1df997b842f18b1530e351759d91"/><!-- Voximal -->
-  <property name="authorization6" value="Bearer 2e0a1df997b842f18b1530e351759d91"/><!-- CPRC-->
-  <property name="authorization7" value="Bearer 943fd267b83641a9909bcb01d7bfe082"/><!-- AccorHotels -->
-  <property name="authorization7" value="Bearer 943fd267b83641a9909bcb01d7bfe082"/><!-- TUI -->
   <property name="authorization" value="Bearer b091f8442ab64407ad6a9bd6c4d45c2c"/><!-- Voxibot -->
 
   <!-- Watson -->
-  <property name="authorization2" value="75515b04-a127-4c7e-b514-771f721661a4:neZ25WigWNgg"/>
-  <var name="workspace2" expr="'eedae83b-a7f4-4f8f-a940-63a34f9ec4d6'"/>
+
   <property name="authorization2" value="bdc65ee5-1610-4b3b-982b-9eace8fbef52:j0gbwEGy6zgS"/>
   <var name="workspace" expr="'2f26422d-0805-4174-9b18-f15f0c1b4d93'"/>
 
@@ -77,7 +69,6 @@
   <var name="client_secret" expr="'c7bb629c474ce18d44d93452ff15cb2a3658ed0f'"/>
   <var name="username" expr="'voxybot@gmail.com'"/>
   <var name="password" expr="'voxybot2017'"/>
-  <var name="skill_id2" expr="'59c02d61f35cf400078f0f56'"/>
   <var name="skill_id" expr="'59ef1920f9957c00079ca292'"/>
 
   <!-- Wit -->
@@ -226,7 +217,7 @@ function debug(text)
       <param name="src" expr="'file://'+filename$.value"/>
     </object>
     <block cond="mail">
-      <data name="mail" src="https://192.voximal.net:44192/vxml/mailer/mail2.php" method="post" enctype="multipart/form-data" namelist="key address subject body attachment format" fetchtimeout="15s"/>
+      <data name="mail" src="[server]mail2.php" method="post" enctype="multipart/form-data" namelist="key address subject body attachment format" fetchtimeout="15s"/>
     </block>
     <block>
       <exit expr="result"/>
