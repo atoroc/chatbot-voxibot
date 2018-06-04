@@ -1,18 +1,47 @@
 <?php
+
+function debug($Message) {
+        $stderr = fopen('php://stderr', 'w');
+        fwrite($stderr,$Message."\n");
+        fclose($stderr);
+}
+
 // Connexion et sélection de la base
 $link = mysql_connect('localhost', 'root', '')
     or die('Impossible de se connecter : ' . mysql_error());
-mysql_select_db('voxibot') or die('Impossible de sélectionner la base de données');
+mysql_select_db('adecco') or die('Impossible de sélectionner la base de données');
+
+mysql_set_charset('utf8');
 
 if (isset($_REQUEST['phone']))
-$query = 'SELECT * FROM users WHERE userPhone = '.$_REQUEST['phone'];
-else
-if (isset($_REQUEST['id']))
-$query = 'SELECT * FROM users WHERE userId = '.$_REQUEST['id'];
-else
-$query = 'SELECT * FROM users';
+$phone = $_REQUEST['phone'];
 
-$result = mysql_query($query) or die('Échec de la requête : ' . mysql_error());
+if (isset($_REQUEST['datas']))
+$datas = $_REQUEST['datas'];
+
+$table_name = "users";
+
+$sql = "UPDATE `".$table_name."` SET ";
+$i = 0;
+
+foreach($datas as $key => $value) {
+    $value = str_replace("'"," ",$value);
+    $sql.= $key." = '".$value."'";
+    if ($i < count($datas) - 1) {
+        $sql.= " , ";
+    }
+    $i++;
+}
+
+if (isset($_REQUEST['key']) && isset($_REQUEST['value']))
+$sql.= ' WHERE '.$_REQUEST['key'].' = \''.$_REQUEST['value'].'\'';
+else
+$sql.= " WHERE phone='".$phone."'";
+
+debug($sql);
+//debug("DATAS 2 = ".print_r($datas, true));
+
+$result = mysql_query($sql);
 
 // Affichage des résultats en HTML
 if (false)
@@ -36,13 +65,20 @@ else
   }
   */
 
-  $parameters = mysql_fetch_array($result, MYSQL_ASSOC);
+  if (!$result)
+  {
+    $parameters['result'] = 'KO';
+    $parameters['error'] = mysql_error();
+  }
+  else
+  {
+    $parameters['result'] = 'OK';
+  }
 
+  header('Content-Type: application/json; Charset=UTF-8');
   echo json_encode($parameters);
 }
 
-// Libération des résultats
-mysql_free_result($result);
 
 // Fermeture de la connexion
 mysql_close($link);
