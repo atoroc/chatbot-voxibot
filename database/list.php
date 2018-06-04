@@ -1,9 +1,11 @@
 <?php
+
+require("../config.php");
+
 // Connexion et sélection de la base
-$link = mysql_connect('localhost', 'root', '')
+$link = mysql_connect($config['db']['hostname'], $config['db']['user'], $config['db']['password'])
     or die('Impossible de se connecter : ' . mysql_error());
-echo 'Connected successfully';
-mysql_select_db('voxibot') or die('Impossible de sélectionner la base de données');
+mysql_select_db($config['db']['name']) or die('Impossible de sélectionner la base de données');
 
 // Exécution des requêtes SQL
 $query = 'SELECT * FROM users';
