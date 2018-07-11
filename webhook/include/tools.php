@@ -27,7 +27,14 @@ function debug($Message) {
 }
 
 
+
 function template($string) {
+  $string = preg_replace_callback('/\%php:(.+);\%/'
+    ,function($matches) { @eval('$ret='.$matches[1].';'); return $ret; } ,$string);
+
+  // Ternary operator
+  //$x = $valid ? 'yes' : 'no';
+  // regexp ($1?$2:$3)
 
   $string = preg_replace_callback('/\%data.(\\S+)\%/'
     ,create_function('$matches', 'return @$_SESSION["data"][$matches[1]];') ,$string);
@@ -53,7 +60,8 @@ function template($string) {
 
 function database_get($id = "", $key = "voxibot") {
   $link = mysql_connect('localhost', 'root', '') or die('Impossible de se connecter : ' . mysql_error());
-  mysql_select_db('voxibot') or die('Impossible de sélectionner la base de données');
+  mysql_select_db('bob') or die('Impossible de sélectionner la base de données');
+  mysql_set_charset('utf8');
 
   debug("GET database ". json_encode($_SESSION));
 
@@ -79,6 +87,7 @@ function database_get($id = "", $key = "voxibot") {
   if ($result)
   {
     $data = mysql_fetch_array($result, MYSQL_ASSOC);
+    $data = array_map('utf8_encode', $data);
   }
 
   mysql_free_result($result);
@@ -90,6 +99,7 @@ function database_get($id = "", $key = "voxibot") {
 function database_set($phone, $parameters) {
   $link = mysql_connect('localhost', 'root', '') or die('Impossible de se connecter : ' . mysql_error());
   mysql_select_db('voxibot') or die('Impossible de sélectionner la base de données');
+  mysql_set_charset('utf8');
 
   $more = '';
   $query = "UPDATE users SET ";
@@ -144,6 +154,18 @@ function processMessage($update) {
   );
 
   if (isset($GLOBALS["voice"]))
+  $message["fulfillment"]["messages"] = array(
+            array(
+                "type" => 0,
+                "speech" => "what else?",
+            ),
+            array(
+                "type" => 1,
+                "speech" => "what else 2?",
+            ),
+      );
+
+  if (isset($GLOBALS["voice"]))
   $message["data"]["google"] = array(
         "expect_user_response" => !isset($GLOBALS['hangup']),
         "is_ssml" => true, //!isset($GLOBALS['nossml']),
@@ -159,7 +181,7 @@ function processMessage($update) {
                 "ssml" => "<speak><audio src=\"https://d1y0sibbj09q2p.cloudfront.net/tts.php?voice=".$GLOBALS["voice"]."&amp;text=".$GLOBALS['speech']."\"/></speak>",
                 ),
             ),
-/*
+
             array(
               "simpleResponse" => array(
                 "textToSpeech" => "what else?",
@@ -167,7 +189,7 @@ function processMessage($update) {
                 "ssml" => "<speak><audio src=\"https://d1y0sibbj09q2p.cloudfront.net/tts.php?voice=".$GLOBALS["voice"]."&amp;text="."what else?"."\"/></speak>",
                 ),
             ),
-*/
+
           ),
         ),
       );
@@ -208,8 +230,120 @@ function processMessage($update) {
 }
 
 
+function processMessage2($update) {
+
+
+
+
+  $message = array(
+    "fulfillmentText" => "",
+    "fulfillmentMessages" => array(),
+
+
+/*
+    "contextOut" => array(
+      array(
+        "name" => "momo",
+        "parameters" => array(
+          "action" => "action",
+          "result" => "ok",
+          "param1" => "momo",
+          "param2" => "toto"
+        ),
+        "lifespan" => 10
+     ),
+    ),
+*/
+
+    "payload" => array(),
+
+/*
+    "data" => array(
+      "telegram" => array(
+        "text" => "Telegrame ans",
+        "parse_mode" => "Markdown",
+        )
+    ),
+*/
+
+  );
+
+
+  if (isset($GLOBALS["voice"]))
+  $message["payload"]["google"] = array(
+        "expect_user_response" => !isset($GLOBALS['hangup']),
+        "is_ssml" => true, //!isset($GLOBALS['nossml']),
+        "permissions_request" => array(
+          "opt_context" => "opt_context",
+        ),
+        "richResponse" => array(
+          "items" => array()
+        ),
+      );
+
+
+  if (isset($GLOBALS["voice"]))
+  if (isset($GLOBALS["messages"])) {
+    for($index = 0;$index < count($GLOBALS["messages"]); $index++)
+    {
+      array_push($message["payload"]["google"]["richResponse"]["items"], array("simpleResponse" => array(
+        "textToSpeech" => $GLOBALS["messages"][$index],
+        "displayText" => $GLOBALS["messages"][$index],
+        "ssml" => "<speak><audio src=\"https://d1y0sibbj09q2p.cloudfront.net/tts.php?voice=".$GLOBALS["voice"]."&amp;text=".$GLOBALS["messages"][$index]."\"/></speak>")));
+
+
+      array_push($message["fulfillmentMessages"], array(
+        "text" => array("text" => array($GLOBALS["messages"][$index]))));
+
+      if ($index)
+      $message['fulfillmentText'] .= " ".$GLOBALS["messages"][$index];
+      else
+      $message['fulfillmentText'] = $GLOBALS["messages"][$index];
+    }
+  }
+
+  if (isset($update["result"]["source"]))
+  $message["source"] = $update["result"]["source"];
+
+  if (isset($GLOBALS['result']['event']))
+  {
+    debug("Format MESSAGE Add event ".$GLOBALS['result']['event']);
+
+    $message["followupEvent"] = array(
+     "name" => $GLOBALS['result']['event'],
+     "data" => array(
+       "param1" => "1",
+       "param2" => "2",
+       "message" => $_SESSION['message_text'],
+       ),
+    );
+  }
+
+  if (isset($GLOBALS['result']['context']))
+  {
+    debug("Format MESSAGE Add context ".$GLOBALS['result']['context']);
+
+    $message["contextOut"] = array(
+     "name" => $GLOBALS['result']['context'],
+     "data" => array(
+       "param1" => "1",
+       "param2" => "2",
+       "message" => $_SESSION['message_text'],
+       ),
+      "lifespan" => 5,
+    );
+  }
+
+  return $message;
+}
+
+
 function sendMessage($parameters) {
-  header('Content-Type: application/json');
+  //header('Content-Type: application/json');
+  header('Content-Type: application/json; Charset=UTF-8');
+
+  //$value = mb_check_encoding($value, 'UTF-8') ? $value : utf8_encode($value);
+
   echo json_encode($parameters);
 }
 

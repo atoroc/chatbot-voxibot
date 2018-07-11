@@ -15,126 +15,283 @@ exit;
 //include 'calculator/index.php';
 //exit;
 
+// Get the Json request
 
-$update_response = file_get_contents("php://input");
-$update = json_decode($update_response, true);
+$fulfillment_request = file_get_contents("php://input");
+$fulfillment = json_decode($fulfillment_request, true);
 
 debug("\n\n\n");
-debug(">>>> JSON : ".json_encode($update, JSON_PRETTY_PRINT));
-debug("----");
+debug(">>>> JSON : ".json_encode($fulfillment, JSON_PRETTY_PRINT));
+debug("---- PROCESS START");
 
-// Session ID
-if (isset($update["sessionId"]))
+
+// Detect the API version with the session parameter
+if (isset($fulfillment["id"]))
 {
-  $sessionid= $update['sessionId'];
-  $sessionid = str_replace(".", "-", $sessionid);
-  session_id($sessionid);
+  $id=$fulfillment['id'];
+  $apiversion=1;
 }
-if (isset($update["session"]))
+else
+if (isset($fulfillment["responseId"]))
 {
-  $sessionid= $update['session'];
-  $sessionid = str_replace(".", "-", $sessionid);
-  session_id($sessionid);
+  $id=$fulfillment['responseId'];
+  $apiversion=2;
 }
-
-if (session_start())
+else
 {
-  debug("Server=".$_SERVER['HTTP_USER_AGENT']);
-  if (isset($sessionid))
-  debug("Start session=" . $sessionid);
+  debug(">>>> ERROR : Invalid resquest");
+  exit();
 }
 
-if (isset($update["lang"])) {
-  $_SESSION['lang'] = $update["lang"];
-  debug("    lang=" . $_SESSION['lang']);
-}
 
-// Store the query
-if (isset($update["result"]["resolvedQuery"])) {
-  $GLOBALS["query"] = $update["result"]["resolvedQuery"];
-  debug("    query=" . $GLOBALS["query"]);
-}
+debug("    API version=".$apiversion);
 
-// Store parameters
-if (isset($update["result"]["parameters"])) {
-  $GLOBALS["parameters"] = $update["result"]["parameters"];
+// Process request from Version 1
+if ($apiversion==1)
+{
+  if (isset($fulfillment["session"]))
+  {
+    $sessionid= $fulfillment['session'];
+    $sessionid = str_replace(".", "-", $sessionid);
+    session_id($sessionid);
+  }
 
-  foreach ($GLOBALS["parameters"] as $key => $value) {
-    //debug("{$key} => {$value} ");
+  if (session_start())
+  {
+    debug("Server=".$_SERVER['HTTP_USER_AGENT']);
+    $_SESSION['id'] = session_id();
+    debug("Start session=" . $_SESSION['id']);
+  }
+  else
+  {
+    debug("Retreive session=" . json_encode($_SESSION));
+  }
 
-    $GLOBALS["parameters"][$key] = utf8_decode(template($GLOBALS["parameters"][$key]));
+  if (isset($fulfillment["lang"])) {
+    $_SESSION['lang'] = $fulfillment["lang"];
+    debug("    lang=" . $_SESSION['lang']);
+  }
 
-    /*
-    if ($value[0]=='%')
-    {
-      $var = explode('.', $value);
+  // Store the query
+  if (isset($fulfillment["result"]["resolvedQuery"])) {
+    $GLOBALS["query"] = $fulfillment["result"]["resolvedQuery"];
+    debug("    query=" . $GLOBALS["query"]);
+  }
 
-      if (substr($var[1], -1)=='%')
-      $var[1] = substr($var[1], 0, -1);
+  // Store parameters
+  if (isset($fulfillment["result"]["parameters"])) {
+    $GLOBALS["parameters"] = $fulfillment["result"]["parameters"];
 
-      if ($var[0]=="%session")
-      $GLOBALS["parameters"][$key]=$_SESSION[$var[1]];
-      if ($var[0]=="%user")
-      $GLOBALS["parameters"][$key]=$_SESSION["user"][$var[1]];
+    foreach ($GLOBALS["parameters"] as $key => $value) {
+      //debug("{$key} => {$value} ");
+
+      $GLOBALS["parameters"][$key] = utf8_decode(template($GLOBALS["parameters"][$key]));
+
+      /*
+      if ($value[0]=='%')
+      {
+        $var = explode('.', $value);
+
+        if (substr($var[1], -1)=='%')
+        $var[1] = substr($var[1], 0, -1);
+
+        if ($var[0]=="%session")
+        $GLOBALS["parameters"][$key]=$_SESSION[$var[1]];
+        if ($var[0]=="%user")
+        $GLOBALS["parameters"][$key]=$_SESSION["user"][$var[1]];
+      }
+      */
     }
-    */
+
+    debug("    parameters=".json_encode($GLOBALS['parameters']));
   }
 
-  debug("    parameters=".json_encode($GLOBALS['parameters']));
-}
-
-// Store the text
-if (isset($update["result"]["fulfillment"]["speech"])) {
-  $GLOBALS["speech"] = $update["result"]["fulfillment"]["speech"];
-  debug("    speech=".$GLOBALS["speech"]);
-}
-
-if (isset($update["result"]["action"]))
-if ($update["result"]["action"] != '')
-{
-  $GLOBALS["action"] = $update["result"]["action"];
-  debug("    action=".$GLOBALS["action"]);
-}
-
-// Wit.ai
-if (isset($update["result"]["entities"]["intent"]))
-//if ($update["entities"]["intent"][0] != '')
-{
-  $GLOBALS["action"] = 'execute.'.$update["result"]["entities"]["intent"][0]['value'];
-  debug("    action=".$GLOBALS["action"]);
-}
-
-
-if (isset($update["result"]["metadata"]))
-if (isset($update["result"]["metadata"]["intentName"]))
-{
-  $GLOBALS["intent"] = $update["result"]["metadata"]["intentName"];
-  debug("    intent=".$GLOBALS["intent"]);
-}
-
-if (!isset($_SESSION["user"]))
-if (isset($update["originalRequest"]["source"]))
-{
-  // google
-  if ($update["originalRequest"]["source"] == "google")
-  if (isset($update["originalRequest"]["data"]["user"])) {
-    $_SESSION["lastSeen"]= $update["originalRequest"]["data"]["user"]["lastSeen"];
-    $_SESSION["locale"]= $update["originalRequest"]["data"]["user"]["locale"];
-    $_SESSION["userId"] = $update["originalRequest"]["data"]["user"]["userId"];
-    $_SESSION["caller"] = 'google';
-    $_SESSION["called"] = 'google/voxibot';
-    $_SESSION["user"] = database_get($_SESSION["userId"], "google");
-    debug("    user(google)=".json_encode($_SESSION["user"], JSON_PRETTY_PRINT));
+  // Store the text
+  if (isset($fulfillment["result"]["fulfillment"]["speech"])) {
+    $GLOBALS["speech"] = $fulfillment["result"]["fulfillment"]["speech"];
+    debug("    speech=".$GLOBALS["speech"]);
   }
 
-  // voxibot
-  if ($update["originalRequest"]["source"] == "voxibot")
-  if (isset($update["originalRequest"]["data"]["user"])) {
-    $_SESSION["param"]= $update["originalRequest"]["data"]["user"]["param"];
-    $_SESSION["called"]= $update["originalRequest"]["data"]["user"]["called"];
-    $_SESSION["caller"] = $update["originalRequest"]["data"]["user"]["caller"];
-    $_SESSION["user"] = database_get($_SESSION["caller"], "voxibot");
-    debug("    user(voxibot)=".json_encode($_SESSION["user"], JSON_PRETTY_PRINT));
+  if (isset($fulfillment["result"]["action"]))
+  if ($fulfillment["result"]["action"] != '')
+  {
+    $GLOBALS["action"] = $fulfillment["result"]["action"];
+    debug("    action=".$GLOBALS["action"]);
+  }
+
+  // Wit.ai
+  if (isset($fulfillment["result"]["entities"]["intent"]))
+  //if ($fulfillment["entities"]["intent"][0] != '')
+  {
+    $GLOBALS["action"] = 'execute.'.$fulfillment["result"]["entities"]["intent"][0]['value'];
+    debug("    action=".$GLOBALS["action"]);
+  }
+
+
+  if (isset($fulfillment["result"]["metadata"]))
+  if (isset($fulfillment["result"]["metadata"]["intentName"]))
+  {
+    $GLOBALS["intent"] = $fulfillment["result"]["metadata"]["intentName"];
+    debug("    intent=".$GLOBALS["intent"]);
+  }
+
+  //if (!isset($_SESSION["user"]))
+  if (isset($fulfillment["originalRequest"]["source"]))
+  {
+    // facebook
+    if ($fulfillment["originalRequest"]["source"] == "facebook")
+    if (isset($fulfillment["originalRequest"]["data"]["user"])) {
+      $_SESSION["lastSeen"]= $fulfillment["originalRequest"]["data"]["user"]["lastSeen"];
+      $_SESSION["locale"]= $fulfillment["originalRequest"]["data"]["user"]["locale"];
+      $_SESSION["userId"] = $fulfillment["originalRequest"]["data"]["user"]["userId"];
+      $_SESSION["caller"] = 'facebook';
+      $_SESSION["called"] = 'facebook/voxibot';
+      $_SESSION["user"] = database_get($_SESSION["userFacebook"], "facebook");
+      debug("    user(google)=".json_encode($_SESSION["user"], JSON_PRETTY_PRINT));
+    }
+
+    // google
+    if ($fulfillment["originalRequest"]["source"] == "google")
+    if (isset($fulfillment["originalRequest"]["data"]["user"])) {
+      $_SESSION["lastSeen"]= $fulfillment["originalRequest"]["data"]["user"]["lastSeen"];
+      $_SESSION["locale"]= $fulfillment["originalRequest"]["data"]["user"]["locale"];
+      $_SESSION["userId"] = $fulfillment["originalRequest"]["data"]["user"]["userId"];
+      $_SESSION["caller"] = 'google';
+      $_SESSION["called"] = 'google/voxibot';
+      $_SESSION["user"] = database_get($_SESSION["userId"], "google");
+      debug("    user(google)=".json_encode($_SESSION["user"], JSON_PRETTY_PRINT));
+    }
+
+    // voxibot
+    if ($fulfillment["originalRequest"]["source"] == "voxibot")
+    if (isset($fulfillment["originalRequest"]["data"]["user"])) {
+      $_SESSION["param"]= $fulfillment["originalRequest"]["data"]["user"]["param"];
+      $_SESSION["called"]= $fulfillment["originalRequest"]["data"]["user"]["called"];
+      $_SESSION["caller"] = $fulfillment["originalRequest"]["data"]["user"]["caller"];
+      $_SESSION["user"] = database_get($_SESSION["caller"], "voxibot");
+      debug("    user(voxibot)=".json_encode($_SESSION["user"], JSON_PRETTY_PRINT));
+    }
+  }
+
+}
+
+
+if ($apiversion==2)
+{
+  // Session ID
+  if (isset($fulfillment["session"]))
+  {
+    $sessionid= $fulfillment['session'];
+    debug("    use session_id=".$sessionid);
+    $sessionid = str_replace(".", "-", $sessionid);
+    $sessionid = str_replace("/", "-", $sessionid);
+    //debug("    use session_id=".$sessionid);
+    session_id($sessionid);
+  }
+
+  if (session_start())
+  {
+    //debug("    Agent=".$_SERVER['HTTP_USER_AGENT']);
+    $_SESSION['id'] = session_id();
+    debug("    session=" . $_SESSION['id']);
+  }
+
+  // Language
+  if (isset($fulfillment["queryResult"]["languageCode"])) {
+    $_SESSION['lang'] = $fulfillment["queryResult"]["languageCode"];
+    debug("    lang=" . $_SESSION['lang']);
+  }
+
+  // Store the query
+  if (isset($fulfillment["queryResult"]["queryText"])) {
+    $GLOBALS["query"] = $fulfillment["queryResult"]["queryText"];
+    debug("    query=" . $GLOBALS["query"]);
+  }
+
+  // Store parameters
+  if (isset($fulfillment["queryResult"]["parameters"])) {
+    $GLOBALS["parameters"] = $fulfillment["queryResult"]["parameters"];
+
+    foreach ($GLOBALS["parameters"] as $key => $value) {
+      $GLOBALS["parameters"][$key] = utf8_decode(template($GLOBALS["parameters"][$key]));
+    }
+
+    debug("    parameters=".json_encode($GLOBALS['parameters']));
+  }
+
+  // Store the text
+  if (isset($fulfillment["queryText"])) {
+    $GLOBALS["speech"] = $fulfillment["queryText"];
+    debug("    speech=".$GLOBALS["speech"]);
+  }
+
+  if (isset($fulfillment["queryResult"]["action"]))
+  if ($fulfillment["queryResult"]["action"] != '')
+  {
+    $GLOBALS["action"] = $fulfillment["queryResult"]["action"];
+    debug("    action=".$GLOBALS["action"]);
+  }
+
+  //if (!isset($_SESSION["user"]))
+  if (isset($fulfillment["originalDetectIntentRequest"]["source"]))
+  {
+    // facebook
+    if ($fulfillment["originalDetectIntentRequest"]["source"] == "facebook")
+    if (isset($fulfillment["originalRequest"]["data"]["user"])) {
+      $_SESSION["lastSeen"]= $fulfillment["originalRequest"]["data"]["user"]["lastSeen"];
+      $_SESSION["locale"]= $fulfillment["originalRequest"]["data"]["user"]["locale"];
+      $_SESSION["userId"] = $fulfillment["originalRequest"]["data"]["user"]["userId"];
+      $_SESSION["caller"] = 'facebook';
+      $_SESSION["called"] = 'facebook/voxibot';
+      $_SESSION["user"] = database_get($_SESSION["userFacebook"], "facebook");
+      debug("    user(google)=".json_encode($_SESSION["user"], JSON_PRETTY_PRINT));
+    }
+
+    // google
+    if ($fulfillment["originalDetectIntentRequest"]["source"] == "google")
+    if (isset($fulfillment["originalDetectIntentRequest"]["payload"]["user"])) {
+      $_SESSION["lastSeen"]= $fulfillment["originalDetectIntentRequest"]["payload"]["user"]["lastSeen"];
+      $_SESSION["locale"]= $fulfillment["originalDetectIntentRequest"]["payload"]["user"]["locale"];
+      $_SESSION["userId"] = $fulfillment["originalDetectIntentRequest"]["payload"]["user"]["userId"];
+      $_SESSION["caller"] = 'google';
+      $_SESSION["called"] = 'google/voxibot';
+      $_SESSION["user"] = database_get($_SESSION["userId"], "google");
+      debug("    user(google)=".json_encode($_SESSION["user"], JSON_PRETTY_PRINT));
+    }
+
+    // voxibot
+    if ($fulfillment["originalDetectIntentRequest"]["source"] == "voxibot")
+    if (isset($fulfillment["originalDetectIntentRequest"]["data"]["user"])) {
+      $_SESSION["param"]= $fulfillment["originalDetectIntentRequest"]["data"]["user"]["param"];
+      $_SESSION["called"]= $fulfillment["originalDetectIntentRequest"]["data"]["user"]["called"];
+      $_SESSION["caller"] = $fulfillment["originalDetectIntentRequest"]["data"]["user"]["caller"];
+      $_SESSION["user"] = database_get($_SESSION["caller"], "voxibot");
+      debug("    user(voxibot)=".json_encode($_SESSION["user"], JSON_PRETTY_PRINT));
+    }
+  }
+
+  // Store messages
+  if (isset($fulfillment["queryResult"]["fulfillmentMessages"])) {
+    //debug(print_r($fulfillment["queryResult"]["fulfillmentMessages"], true));
+
+    $GLOBALS["messages"] = array();
+    $index2 =0;
+
+    for($index = 0;$index < count($fulfillment["queryResult"]["fulfillmentMessages"]); $index++)
+    {
+      //$GLOBALS["messages"][$index] = utf8_decode(template($fulfillment["queryResult"]["fulfillmentMessages"][$index]["text"]["text"][0]));
+      if (isset($fulfillment["queryResult"]["fulfillmentMessages"][$index]["text"]["text"][0]))
+      {
+        $GLOBALS["messages"][$index2] = $fulfillment["queryResult"]["fulfillmentMessages"][$index]["text"]["text"][0];
+        debug("    message[".$index."]=".$GLOBALS["messages"][$index2]);
+
+        $index2++;
+      }
+      else
+      {
+        debug("    message[".$index."]=[skiped!]");
+      }
+    }
   }
 }
 
@@ -193,20 +350,20 @@ if (isset($GLOBALS['action']))
 
   foreach($actions as $action)
   {
-    debug("    action(execute)=".$action);
+    debug("    action=".$action);
 
     switch ($action) {
       case 'input.welcome':
           {
-            if (isset($update["result"]["parameters"]["phone"]))
-            $_SESSION["phone"] = $update["result"]["parameters"]["phone"];
-            if (isset($update["result"]["parameters"]["voice"]))
-            $_SESSION["voice"] = $update["result"]["parameters"]["voice"];
+            if (isset($GLOBALS["parameters"]["phone"]))
+            $_SESSION["phone"] = $GLOBALS["parameters"]["phone"];
+            if (isset($GLOBALS['parameters']['voice']))
+            $_SESSION["voice"] = $GLOBALS["parameters"]["voice"];
           }
           break;
       case 'session.set':
           {
-            $_SESSION["parameters"] = $update["result"]["parameters"];
+            $_SESSION["parameters"] = $GLOBALS['parameters'];
           }
           break;
       case 'database.get':
@@ -224,8 +381,8 @@ if (isset($GLOBALS['action']))
           break;
       case 'voice':
           {
-            if (isset($update["result"]["parameters"]["voice"]))
-            $_SESSION["voice"] = $update["result"]["parameters"]["voice"];
+            if (isset($parameters["voice"]))
+            $_SESSION["voice"] = $parameters["voice"];
             debug("    voice=".$_SESSION["voice"]);
           }
           break;
@@ -255,13 +412,13 @@ if (isset($GLOBALS['action']))
           break;
       case 'callback':
           {
-            if ($update["originalRequest"]["source"] == "google")
+            if ($fulfillment["originalRequest"]["source"] == "google")
             include "call/index.php";
           }
           break;
       case 'call':
           {
-            if ($update["originalRequest"]["source"] == "google")
+            if ($fulfillment["originalRequest"]["source"] == "google")
             include "call/index.php";
           }
           break;
@@ -311,10 +468,28 @@ $GLOBALS["speech"] = template($GLOBALS["speech"]);
 if (isset($GLOBALS["speech"]))
 debug("    speech(output)=".$GLOBALS["speech"]);
 
-// Get Action
-$message_answer = processMessage($update);
+// Process messages
+if (isset($GLOBALS["messages"])) {
+  for($index = 0;$index < count($GLOBALS["messages"]); $index++)
+  {
+    $GLOBALS["messages"][$index] = template($GLOBALS["messages"][$index]);
 
-debug("----");
+    if (strstr($GLOBALS["messages"][$index], "?"))
+    $GLOBALS["question"] = $GLOBALS["messages"][$index];
+  }
+
+  if (isset($GLOBALS["question"]))
+  debug("    question=".$GLOBALS["question"]);
+}
+
+// Get Action
+if ($apiversion==1)
+$message_answer = processMessage($fulfillment);
+else
+$message_answer = processMessage2($fulfillment);
+
+
+debug("---- PROCESS END");
 debug("<<<< JSON : ".json_encode($message_answer, JSON_PRETTY_PRINT));
 
 sendMessage($message_answer);

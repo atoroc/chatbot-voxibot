@@ -1,12 +1,31 @@
 <?xml version="1.0"?>
 <vxml version="2.1" xmlns="http://www.w3.org/2001/vxml" application="root.vxml">
  <form>
+
+  <block cond="database">
+   <var name="key" expr="'KEY'" />
+   <var name="value" expr="caller" />
+   <data name="api" method="post" src="database/get.php" namelist="key value" />
+   <assign name="get" expr="api" />
+
+   <script>
+    var d = new Date();
+    var datestring = ("0" + d.getDate()).slice(-2) + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + d.getFullYear() + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+   </script>
+  </block>
+
   <block>
-   <if cond="detector">
-     <goto next="detector.vxml"/>
+   <if cond="called == 'dialer'">
+     <if cond="detector">
+       <goto next="detector.vxml"/>
+     <else/>
+       <goto next="welcome.vxml"/>
+     </if>
    <else/>
      <goto next="welcome.vxml"/>
    </if>
+   <goto next="transfer.vxml"/>
   </block>
+
  </form>
 </vxml>
